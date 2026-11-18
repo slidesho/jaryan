@@ -4,5 +4,10 @@ import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { IS_DEMO } from "./router";
 
-createRoot(document.getElementById("root")!).render(<App />);
+async function start() {
+  if (IS_DEMO) (await import("./demo")).installDemoApi();
+  createRoot(document.getElementById("root")!).render(<App />);
+}
+void start();

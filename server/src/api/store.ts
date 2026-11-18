@@ -1,22 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { ExecutionResult, Workflow } from "../engine/types.js";
+import type { StoredExecution, StoredWorkflow } from "./types.js";
 
-export interface StoredWorkflow extends Workflow {
-  active: boolean;
-  createdAt: number;
-  updatedAt: number;
-  /** موقعیت گره‌ها روی بوم: شناسه ← {x,y} */
-  positions?: Record<string, { x: number; y: number }>;
-}
-
-export interface StoredExecution extends ExecutionResult {
-  id: string;
-  workflowId: string;
-  mode: "manual" | "webhook";
-  startedAt: number;
-  finishedAt: number;
-}
+export type { StoredExecution, StoredWorkflow };
 
 interface Data {
   workflows: StoredWorkflow[];

@@ -78,3 +78,6 @@ h1 { font-size: 20px; margin: 0; } h3 { font-size: 14px; margin: 12px 0 6px; }
 pre { background: #f6f7f9; border-radius: 8px; padding: 8px; overflow: auto; max-height: 140px; font-size: 12px; margin: 4px 0; }
 .hist { display: block; width: 100%; text-align: start; margin-bottom: 4px; }
 .hist.error { color: var(--err); }
+.demo-note { background: var(--warn-bg); color: var(--warn); padding: 8px 20px; font-size: 13px; }
+.confirm { display: inline-flex; gap: 8px; align-items: center; color: var(--err); font-size: 12px; }
+a.back { color: var(--accent); }

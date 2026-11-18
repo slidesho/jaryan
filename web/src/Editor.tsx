@@ -8,6 +8,7 @@ import {
   type ExecSummary, type Execution, type FieldDef, type NodeTypeDef, type Workflow,
 } from "./api";
 import { NodeCard, type FlowNode } from "./NodeCard";
+import { IS_DEMO, Link } from "./router";
 
 const nodeTypes = { card: NodeCard };
 
@@ -214,12 +215,12 @@ function Inner({ id }: { id: string }) {
   return (
     <div className="editor">
       <div className="toolbar">
-        <a href="#/" className="back">→ گردش‌کارها</a>
+        <Link className="back" to="/">→ گردش‌کارها</Link>
         <input className="name-input" value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} aria-label="نام گردش‌کار" />
         {dirty && <span className="muted">ذخیره نشده</span>}
         {notice && !dirty && <span className="ok-text">{notice}</span>}
         <span className="spacer" />
-        <button onClick={toggleActive}>{active ? "غیرفعال کردن" : "فعال‌سازی وب‌هوک"}</button>
+        {!IS_DEMO && <button onClick={toggleActive}>{active ? "غیرفعال کردن" : "فعال‌سازی وب‌هوک"}</button>}
         <button onClick={save} disabled={!dirty}>ذخیره</button>
         <button className="primary" onClick={run} disabled={busy}>{busy ? "در حال اجرا…" : "▶ اجرا"}</button>
       </div>
@@ -227,7 +228,7 @@ function Inner({ id }: { id: string }) {
       {active && (
         <div className="hook">
           نشانی وب‌هوک (با POST و بدنه‌ی JSON): <code dir="ltr">{hook}</code>
-          <button onClick={() => navigator.clipboard?.writeText(hook).then(() => setNotice("نشانی کپی شد"))}>کپی</button>
+          <button onClick={() => navigator.clipboard?.writeText(hook).then(() => setNotice("نشانی کپی شد"), () => setNotice("کپی ممکن نشد؛ نشانی را دستی انتخاب کنید"))}>کپی</button>
         </div>
       )}
 

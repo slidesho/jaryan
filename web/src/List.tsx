@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, faDate, faNum, SAMPLE, type WorkflowSummary } from "./api";
+import { Link, navigate } from "./router";
 
 export function List() {
   const [items, setItems] = useState<WorkflowSummary[] | null>(null);
   const [error, setError] = useState("");
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api.list().then(setItems).catch((e: Error) => setError(e.message));
@@ -15,13 +17,12 @@ export function List() {
       const w = await api.create(
         sample ? SAMPLE : { name: "گردش‌کار جدید", nodes: [{ id: "t", name: "شروع", type: "trigger", params: {} }], connections: [], positions: { t: { x: 400, y: 120 } } },
       );
-      location.hash = `#/w/${w.id}`;
+      navigate(`/w/${w.id}`);
     } catch (e) { setError((e as Error).message); }
   }
 
   async function remove(w: WorkflowSummary) {
-    if (!confirm(`«${w.name}» همراه با تاریخچه‌ی اجرایش حذف می‌شود و برگشت‌پذیر نیست. ادامه می‌دهید؟`)) return;
-    try { await api.remove(w.id); load(); } catch (e) { setError((e as Error).message); }
+    try { await api.remove(w.id); setConfirmId(null); load(); } catch (e) { setError((e as Error).message); }
   }
 
   return (
@@ -47,11 +48,21 @@ export function List() {
           <tbody>
             {items.map((w) => (
               <tr key={w.id}>
-                <td><a href={`#/w/${w.id}`}>{w.name}</a></td>
+                <td><Link to={`/w/${w.id}`}>{w.name}</Link></td>
                 <td>{faNum(w.nodeCount)}</td>
                 <td><span className={`pill ${w.active ? "ok" : ""}`}>{w.active ? "فعال" : "غیرفعال"}</span></td>
                 <td>{faDate(w.updatedAt)}</td>
-                <td className="actions"><button className="danger" onClick={() => remove(w)}>حذف</button></td>
+                <td className="actions">
+                  {confirmId === w.id ? (
+                    <span className="confirm">
+                      با تاریخچه‌ی اجرا حذف می‌شود و برگشت ندارد.
+                      <button className="danger" onClick={() => remove(w)}>بله، حذف شود</button>
+                      <button onClick={() => setConfirmId(null)}>انصراف</button>
+                    </span>
+                  ) : (
+                    <button className="danger" onClick={() => setConfirmId(w.id)}>حذف</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

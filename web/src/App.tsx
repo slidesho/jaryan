@@ -1,25 +1,20 @@
-import { useEffect, useState } from "react";
 import { Editor } from "./Editor";
 import { List } from "./List";
-
-function useHash() {
-  const [h, setH] = useState(location.hash);
-  useEffect(() => {
-    const f = () => setH(location.hash);
-    window.addEventListener("hashchange", f);
-    return () => window.removeEventListener("hashchange", f);
-  }, []);
-  return h;
-}
+import { IS_DEMO, Link, usePath } from "./router";
 
 export function App() {
-  const hash = useHash();
-  const m = hash.match(/^#\/w\/([\w-]+)$/);
+  const path = usePath();
+  const m = path.match(/^\/w\/([\w-]+)$/);
   return (
     <div className="app">
       <header className="topbar">
-        <a className="brand" href="#/">جریان <small>نسخه‌ی آزمایشی</small></a>
+        <Link className="brand" to="/">جریان <small>نسخه‌ی آزمایشی</small></Link>
       </header>
+      {IS_DEMO && (
+        <div className="demo-note">
+          نسخه‌ی آنلاین برای دیدن و امتحان رابط است: همه‌چیز فقط در همین مرورگر اجرا و ذخیره می‌شود. گره‌هایی که به اینترنت وصل می‌شوند (درخواست HTTP، بله، تلگرام، کاوه‌نگار) و وب‌هوک در این نسخه کار نمی‌کنند؛ برای آن‌ها بسته‌ی zip را روی کامپیوتر اجرا کنید.
+        </div>
+      )}
       <main>{m ? <Editor key={m[1]} id={m[1]} /> : <List />}</main>
     </div>
   );
