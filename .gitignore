@@ -9,3 +9,6 @@ backups/
 *.pem
 *.key
 .DS_Store
+server/public/
+server/dist/
+dist-test/
