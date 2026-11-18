@@ -1,0 +1,11 @@
+.env
+.env.*
+node_modules/
+dist/
+uploads/
+data/
+backups/
+*.zip
+*.pem
+*.key
+.DS_Store
