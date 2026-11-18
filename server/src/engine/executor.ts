@@ -1,4 +1,5 @@
 import { resolveParams } from "./expression.js";
+import { messagingNodes } from "./messaging-nodes.js";
 import { builtinNodes } from "./nodes.js";
 import type {
   ExecutionResult, Item, NodeHandler, NodeRun, Workflow, WorkflowNode,
@@ -50,7 +51,7 @@ export async function executeWorkflow(
   opts: ExecuteOptions = {},
 ): Promise<ExecutionResult> {
   validateWorkflow(wf);
-  const handlers = { ...builtinNodes, ...opts.handlers };
+  const handlers = { ...builtinNodes, ...messagingNodes, ...opts.handlers };
   const doFetch = opts.fetch ?? fetch;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const maxRuns = opts.maxNodeRuns ?? 500;
