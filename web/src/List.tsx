@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, faDate, faNum, SAMPLE, type WorkflowSummary } from "./api";
+import { api, faDate, faNum, SAMPLE, SAMPLE_BALE_TELEGRAM, type WorkflowSummary } from "./api";
 import { Link, navigate } from "./router";
 
 export function List() {
@@ -12,10 +12,10 @@ export function List() {
   }, []);
   useEffect(load, [load]);
 
-  async function create(sample: boolean) {
+  async function create(sample: boolean | "chat") {
     try {
       const w = await api.create(
-        sample ? SAMPLE : { name: "گردش‌کار جدید", nodes: [{ id: "t", name: "شروع", type: "trigger", params: {} }], connections: [], positions: { t: { x: 400, y: 120 } } },
+        sample === "chat" ? SAMPLE_BALE_TELEGRAM : sample ? SAMPLE : { name: "گردش‌کار جدید", nodes: [{ id: "t", name: "شروع", type: "trigger", params: {} }], connections: [], positions: { t: { x: 400, y: 120 } } },
       );
       navigate(`/w/${w.id}`);
     } catch (e) { setError((e as Error).message); }
@@ -30,6 +30,7 @@ export function List() {
       <div className="page-head">
         <h1>گردش‌کارها</h1>
         <div className="row">
+          <button onClick={() => create("chat")}>نمونه: پیام به بله و تلگرام</button>
           <button onClick={() => create(true)}>ساخت نمونه‌ی آماده</button>
           <button className="primary" onClick={() => create(false)}>گردش‌کار جدید</button>
         </div>

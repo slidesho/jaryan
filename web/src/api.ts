@@ -73,6 +73,17 @@ export const SAMPLE = {
   ],
   positions: { t: { x: 700, y: 120 }, c: { x: 440, y: 120 }, y: { x: 180, y: 20 }, n: { x: 180, y: 220 } },
 };
+export const SAMPLE_BALE_TELEGRAM = {
+  name: "نمونه: با شروع، یک پیام به بله و یک پیام به تلگرام",
+  nodes: [
+    { id: "t", name: "شروع", type: "trigger", params: {} },
+    { id: "b", name: "پیام به بله", type: "bale", params: { token: "", chatId: "", text: "سلام! گردش‌کار شروع شد." } },
+    { id: "g", name: "پیام به تلگرام", type: "telegram", params: { token: "", chatId: "", text: "سلام! گردش‌کار شروع شد." } },
+  ],
+  connections: [{ from: "t", to: "b" }, { from: "t", to: "g" }],
+  positions: { t: { x: 700, y: 120 }, b: { x: 380, y: 20 }, g: { x: 380, y: 220 } },
+};
+
 export const SAMPLE_INPUT = '[{"body": {"نام": "علی", "مبلغ": 250}}]';
 
 export function modeLabel(mode: string): string {
