@@ -4,7 +4,7 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  api, faDate, faNum, SAMPLE_INPUT, SECRET_PLACEHOLDER,
+  api, faDate, faNum, modeLabel, SAMPLE_INPUT, SECRET_PLACEHOLDER,
   type ExecSummary, type Execution, type FieldDef, type NodeTypeDef, type Workflow,
 } from "./api";
 import { NodeCard, type FlowNode } from "./NodeCard";
@@ -18,7 +18,7 @@ function toFlow(w: Workflow, types: NodeTypeDef[]) {
     id: n.id,
     type: "card",
     position: w.positions?.[n.id] ?? { x: 700 - i * 260, y: 120 },
-    data: { type: n.type, name: n.name, label: byType.get(n.type)?.label ?? n.type, group: byType.get(n.type)?.group ?? "", params: n.params },
+    data: { type: n.type, name: n.name, label: byType.get(n.type)?.label ?? n.type, group: byType.get(n.type)?.group ?? "", params: n.params, retry: n.retry, continueOnFail: n.continueOnFail },
   }));
   const edges: Edge[] = w.connections.map((c) => ({
     id: `${c.from}-${c.output ?? "main"}-${c.to}`,
@@ -56,6 +56,8 @@ function ParamField({ field, value, onChange }: { field: FieldDef; value: unknow
         {jsonErr && <div className="field-err">{jsonErr}</div>}
       </>
     );
+  } else if (field.type === "textarea") {
+    input = <textarea id={id} dir="auto" rows={6} value={String(value ?? field.default ?? "")} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />;
   } else if (field.type === "secret") {
     const saved = value === SECRET_PLACEHOLDER;
     input = (
@@ -151,7 +153,7 @@ function Inner({ id }: { id: string }) {
     return {
       name: name.trim(),
       active,
-      nodes: nodes.map((n) => ({ id: n.id, name: n.data.name, type: n.data.type, params: n.data.params })),
+      nodes: nodes.map((n) => ({ id: n.id, name: n.data.name, type: n.data.type, params: n.data.params, ...(n.data.retry && n.data.retry.times > 0 ? { retry: n.data.retry } : {}), ...(n.data.continueOnFail ? { continueOnFail: true } : {}) })),
       connections: edges.map((e) => ({ from: e.source, to: e.target, ...(e.sourceHandle && e.sourceHandle !== "main" ? { output: e.sourceHandle } : {}) })),
       positions: Object.fromEntries(nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])),
     };
@@ -198,7 +200,7 @@ function Inner({ id }: { id: string }) {
     try {
       const w = await api.update(id, { ...build(), active: next });
       setWf(w);
-      setNotice(next ? "گردش‌کار فعال شد؛ وب‌هوک آماده است" : "گردش‌کار غیرفعال شد");
+      setNotice(next ? "گردش‌کار فعال شد؛ وب‌هوک، زمان‌بندی و ربات‌ها آماده‌اند" : "گردش‌کار غیرفعال شد");
     } catch (e) { setActive(!next); setError((e as Error).message); }
   }
 
@@ -220,7 +222,7 @@ function Inner({ id }: { id: string }) {
         {dirty && <span className="muted">ذخیره نشده</span>}
         {notice && !dirty && <span className="ok-text">{notice}</span>}
         <span className="spacer" />
-        {!IS_DEMO && <button onClick={toggleActive}>{active ? "غیرفعال کردن" : "فعال‌سازی وب‌هوک"}</button>}
+        {!IS_DEMO && <button onClick={toggleActive}>{active ? "غیرفعال کردن" : "فعال‌سازی (وب‌هوک، زمان‌بندی، ربات)"}</button>}
         <button onClick={save} disabled={!dirty}>ذخیره</button>
         <button className="primary" onClick={run} disabled={busy}>{busy ? "در حال اجرا…" : "▶ اجرا"}</button>
       </div>
@@ -280,6 +282,25 @@ function Inner({ id }: { id: string }) {
                 <ParamField key={`${selected.id}-${f.key}`} field={f} value={selected.data.params[f.key]}
                   onChange={(v) => patchSelected((d) => ({ ...d, params: { ...d.params, [f.key]: v } }))} />
               ))}
+              <details className="adv">
+                <summary>تنظیمات پیشرفته‌ی اجرا</summary>
+                <div className="field">
+                  <label htmlFor="f-retry">تلاش دوباره هنگام خطا (۰ تا ۵ بار)</label>
+                  <input id="f-retry" type="number" min={0} max={5} value={selected.data.retry?.times ?? 0}
+                    onChange={(e) => { const t = Math.max(0, Math.min(5, Math.floor(Number(e.target.value) || 0))); patchSelected((d) => ({ ...d, retry: t > 0 ? { times: t, delayMs: d.retry?.delayMs ?? 1000 } : undefined })); }} />
+                </div>
+                {selected.data.retry && (
+                  <div className="field">
+                    <label htmlFor="f-retry-delay">مکث بین تلاش‌ها (میلی‌ثانیه، حداکثر ۱۰۰۰۰)</label>
+                    <input id="f-retry-delay" type="number" min={0} max={10000} value={selected.data.retry.delayMs}
+                      onChange={(e) => { const m = Math.max(0, Math.min(10000, Math.floor(Number(e.target.value) || 0))); patchSelected((d) => ({ ...d, retry: { times: d.retry?.times ?? 1, delayMs: m } })); }} />
+                  </div>
+                )}
+                <label className="check">
+                  <input type="checkbox" checked={!!selected.data.continueOnFail} onChange={(e) => patchSelected((d) => ({ ...d, continueOnFail: e.target.checked || undefined }))} />
+                  با خطا هم ادامه بده (خطا در فیلد «error» همان آیتم می‌آید)
+                </label>
+              </details>
               <button className="danger" onClick={deleteSelected}>حذف این گره</button>
             </div>
           )}
@@ -298,7 +319,7 @@ function Inner({ id }: { id: string }) {
               <>
                 <div className={`exec-head ${result.status}`}>
                   {result.status === "success" ? "اجرا موفق بود" : `اجرا ناموفق: ${result.error ?? ""}`}
-                  <small> — {faDate(result.startedAt)} — {result.mode === "webhook" ? "وب‌هوک" : "دستی"}</small>
+                  <small> — {faDate(result.startedAt)} — {modeLabel(result.mode)}</small>
                 </div>
                 {result.runs.map((r, i) => (
                   <details key={i} open={r.status === "error"} className={`run ${r.status}`}>
@@ -319,7 +340,7 @@ function Inner({ id }: { id: string }) {
             {history.length === 0 && <p className="muted">اجرایی ثبت نشده.</p>}
             {history.map((h) => (
               <button key={h.id} className={`hist ${h.status}`} onClick={() => openExec(h.id)}>
-                {h.status === "success" ? "✓ موفق" : "✕ ناموفق"} — {h.mode === "webhook" ? "وب‌هوک" : "دستی"} — {faDate(h.startedAt)}
+                {h.status === "success" ? "✓ موفق" : "✕ ناموفق"} — {modeLabel(h.mode)} — {faDate(h.startedAt)}
                 {h.error ? ` — ${h.error}` : ""}
               </button>
             ))}

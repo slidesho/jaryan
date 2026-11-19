@@ -81,3 +81,8 @@ pre { background: #f6f7f9; border-radius: 8px; padding: 8px; overflow: auto; max
 .demo-note { background: var(--warn-bg); color: var(--warn); padding: 8px 20px; font-size: 13px; }
 .confirm { display: inline-flex; gap: 8px; align-items: center; color: var(--err); font-size: 12px; }
 a.back { color: var(--accent); }
+.cn-flags { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.adv { margin: 14px 0; border-top: 1px solid var(--line, #e3e3e8); padding-top: 10px; }
+.adv summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.6; }
+.check input { margin-top: 5px; }

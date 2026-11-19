@@ -56,13 +56,22 @@ export function parseWorkflow(body: unknown): Workflow {
     if (typeof n.name !== "string" || !n.name.trim() || n.name.length > 100) throw new HttpError(400, "نام گره نامعتبر است");
     if (typeof n.type !== "string" || !known.has(n.type)) throw new HttpError(400, `نوع گره ناشناخته است: ${String(n.type)}`);
     const params = n.params && typeof n.params === "object" && !Array.isArray(n.params) ? (n.params as Record<string, unknown>) : {};
-    return { id: n.id, name: n.name.trim(), type: n.type, params };
+    const node: Workflow["nodes"][number] = { id: n.id, name: n.name.trim(), type: n.type, params };
+    const r = n.retry as { times?: unknown; delayMs?: unknown } | undefined;
+    if (r && typeof r === "object") {
+      const times = Number(r.times), delayMs = Number(r.delayMs ?? 0);
+      if (!Number.isInteger(times) || times < 0 || times > 5) throw new HttpError(400, "تعداد تلاش دوباره باید بین ۰ تا ۵ باشد");
+      if (!Number.isFinite(delayMs) || delayMs < 0 || delayMs > 10_000) throw new HttpError(400, "فاصله‌ی تلاش دوباره باید بین ۰ تا ۱۰۰۰۰ میلی‌ثانیه باشد");
+      if (times > 0) node.retry = { times, delayMs };
+    }
+    if (n.continueOnFail === true) node.continueOnFail = true;
+    return node;
   });
   const connections = b.connections.map((raw) => {
     const c = raw as Record<string, unknown>;
     if (typeof c.from !== "string" || typeof c.to !== "string") throw new HttpError(400, "اتصال نامعتبر است");
     const out = typeof c.output === "string" ? c.output : undefined;
-    if (out !== undefined && !["main", "true", "false"].includes(out)) throw new HttpError(400, "خروجی اتصال نامعتبر است");
+    if (out !== undefined && !/^[\w-]{1,32}$/.test(out)) throw new HttpError(400, "خروجی اتصال نامعتبر است");
     return { from: c.from, to: c.to, ...(out ? { output: out } : {}) };
   });
   const wf: Workflow = { id: "", name, nodes, connections };

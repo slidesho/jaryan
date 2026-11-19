@@ -7,6 +7,10 @@ export interface WorkflowNode {
   name: string; // نام یکتا؛ در عبارت‌ها با همین نام به خروجی گره اشاره می‌شود
   type: string;
   params: Record<string, unknown>;
+  /** تلاش دوباره‌ی خودکار هنگام خطا */
+  retry?: { times: number; delayMs: number };
+  /** اگر true باشد، خطای یک آیتم کل اجرا را متوقف نمی‌کند و در فیلد error همان آیتم می‌آید */
+  continueOnFail?: boolean;
 }
 
 export interface Connection {

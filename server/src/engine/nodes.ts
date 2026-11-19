@@ -1,3 +1,4 @@
+import { compare } from "./data-nodes.js";
 import type { Item, NodeHandler } from "./types.js";
 
 /** محرک دستی/وب‌هوک: ورودی را همان‌طور عبور می‌دهد */
@@ -19,18 +20,6 @@ const condition: NodeHandler = async (ctx, items) => {
   }
   return { true: t, false: f };
 };
-
-function compare(a: unknown, op: string, b: unknown): boolean {
-  switch (op) {
-    case "equals": return a == b; // eslint-disable-line eqeqeq
-    case "notEquals": return a != b; // eslint-disable-line eqeqeq
-    case "gt": return Number(a) > Number(b);
-    case "lt": return Number(a) < Number(b);
-    case "contains": return String(a ?? "").includes(String(b ?? ""));
-    case "isEmpty": return a === undefined || a === null || a === "";
-    default: throw new Error(`عملگر شرط ناشناخته است: ${op}`);
-  }
-}
 
 /** درخواست HTTP */
 const http: NodeHandler = async (ctx, items) => {
@@ -61,6 +50,9 @@ const delay: NodeHandler = async (ctx, items) => {
 
 export const builtinNodes: Record<string, NodeHandler> = {
   trigger,
+  schedule: trigger,
+  telegramTrigger: trigger,
+  baleTrigger: trigger,
   set,
   condition,
   http,

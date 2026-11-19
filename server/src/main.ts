@@ -14,6 +14,7 @@ const publicDir = process.env.PUBLIC_DIR ?? path.resolve(here, bundled ? "public
 const { server } = await createApp({
   dataDir,
   publicDir,
+  autoTriggers: true,
   // اگر روی سرور عمومی اجرا شود، میزبان‌های مجاز را با ALLOWED_HOSTS (جداشده با ویرگول) بدهید
   allowedHosts: process.env.ALLOWED_HOSTS ? process.env.ALLOWED_HOSTS.split(",") : undefined,
 });

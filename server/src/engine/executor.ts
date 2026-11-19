@@ -1,8 +1,12 @@
 import { resolveParams } from "./expression.js";
+import { MAX_RETRY_DELAY_MS, MAX_RETRY_TIMES, PER_ITEM_TYPES, RAW_PARAMS, TRIGGER_TYPES } from "./meta.js";
+import { serviceNodes } from "./service-nodes.js";
+import { code } from "./code-node.js";
+import { dataNodes } from "./data-nodes.js";
 import { messagingNodes } from "./messaging-nodes.js";
 import { builtinNodes } from "./nodes.js";
 import type {
-  ExecutionResult, Item, NodeHandler, NodeRun, Workflow, WorkflowNode,
+  ExecutionResult, Item, NodeHandler, NodeOutputs, NodeRun, Workflow, WorkflowNode,
 } from "./types.js";
 
 export interface ExecuteOptions {
@@ -51,7 +55,7 @@ export async function executeWorkflow(
   opts: ExecuteOptions = {},
 ): Promise<ExecutionResult> {
   validateWorkflow(wf);
-  const handlers = { ...builtinNodes, ...messagingNodes, ...opts.handlers };
+  const handlers = { ...builtinNodes, ...dataNodes, ...messagingNodes, ...serviceNodes, code, ...opts.handlers };
   const doFetch = opts.fetch ?? fetch;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const maxRuns = opts.maxNodeRuns ?? 500;
@@ -62,7 +66,7 @@ export async function executeWorkflow(
 
   const start =
     (opts.startNodeId && byId.get(opts.startNodeId)) ||
-    wf.nodes.find((n) => n.type === "trigger" && !incoming.has(n.id));
+    wf.nodes.find((n) => TRIGGER_TYPES.has(n.type) && !incoming.has(n.id));
   if (!start) throw new Error("گره‌ی شروع (محرک) پیدا نشد");
 
   // آیتم‌های رسیده به هر گره؛ شاخه‌های ادغام‌شده آیتم‌هایشان را پشت هم اضافه می‌کنند
@@ -108,11 +112,51 @@ async function runNode(
 ): Promise<NodeRun> {
   const startedAt = Date.now();
   const handler = handlers[node.type];
+  const retry = node.retry && node.retry.times > 0
+    ? { times: Math.min(node.retry.times, MAX_RETRY_TIMES), delayMs: Math.min(Math.max(node.retry.delayMs, 0), MAX_RETRY_DELAY_MS) }
+    : { times: 0, delayMs: 0 };
+
+  /** یک بار اجرای گره روی مجموعه‌ای از آیتم‌ها، با تلاش دوباره */
+  const attempt = async (scope: Item[]): Promise<NodeOutputs> => {
+    let last: unknown;
+    for (let i = 0; i <= retry.times; i++) {
+      try {
+        const raw = RAW_PARAMS[node.type] ?? [];
+        const resolved = resolveParams(Object.fromEntries(Object.entries(node.params).filter(([k]) => !raw.includes(k))), { input: scope[0] ?? {}, nodeOutputs });
+        const params = { ...resolved, ...Object.fromEntries(raw.filter((k) => k in node.params).map((k) => [k, node.params[k]])) };
+        return await handler({ node, params, fetch: doFetch, sleep }, scope);
+      } catch (e) {
+        last = e;
+        if (i < retry.times) await sleep(retry.delayMs);
+      }
+    }
+    throw last;
+  };
+
   try {
     if (!handler) throw new Error(`نوع گره ناشناخته است: ${node.type}`);
-    // عبارت‌ها برای هر گره روی اولین آیتم ورودی حل می‌شوند
-    const params = resolveParams(node.params, { input: items[0] ?? {}, nodeOutputs });
-    const output = await handler({ node, params, fetch: doFetch, sleep }, items);
+    let output: NodeOutputs;
+    if (PER_ITEM_TYPES.has(node.type)) {
+      output = {};
+      for (const item of items) {
+        try {
+          const out = await attempt([item]);
+          for (const [k, v] of Object.entries(out)) (output[k] ??= []).push(...v);
+        } catch (e) {
+          if (!node.continueOnFail) throw e;
+          (output.main ??= []).push({ ...item, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+      if (items.length === 0) output = { main: [] };
+    } else {
+      try {
+        output = await attempt(items);
+      } catch (e) {
+        if (!node.continueOnFail) throw e;
+        const msg = e instanceof Error ? e.message : String(e);
+        output = { main: items.map((it) => ({ ...it, error: msg })) };
+      }
+    }
     return { nodeId: node.id, nodeName: node.name, status: "success", input: items, output, startedAt, durationMs: Date.now() - startedAt };
   } catch (e) {
     return {

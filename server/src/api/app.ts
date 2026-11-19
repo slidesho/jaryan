@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { executeWorkflow } from "../engine/executor.js";
+import { TriggerManager } from "./triggers.js";
 import type { Item } from "../engine/types.js";
 import { NODE_TYPES } from "./catalog.js";
 import { HttpError, maskSecrets, mergeSecrets, parseWorkflow, sanitizePositions, SECRET_PLACEHOLDER } from "./logic.js";
@@ -18,6 +19,8 @@ export interface AppOptions {
   allowedHosts?: string[] | null;
   maxBodyBytes?: number;
   fetchTimeoutMs?: number;
+  /** اجرای خودکار زمان‌بندی و دریافت پیام ربات (در آزمون‌ها خاموش) */
+  autoTriggers?: boolean;
 }
 
 const MIME: Record<string, string> = {
@@ -43,7 +46,7 @@ function send(res: ServerResponse, status: number, body: unknown) {
   res.end(text);
 }
 
-export async function createApp(opts: AppOptions): Promise<{ server: Server; store: FileStore }> {
+export async function createApp(opts: AppOptions): Promise<{ server: Server; store: FileStore; triggers: TriggerManager }> {
   const store = new FileStore(opts.dataDir);
   await store.load();
   const maxBody = opts.maxBodyBytes ?? 1_000_000;
@@ -53,11 +56,11 @@ export async function createApp(opts: AppOptions): Promise<{ server: Server; sto
     baseFetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })) as typeof fetch;
   const allowedHosts = opts.allowedHosts === undefined ? ["localhost", "127.0.0.1", "[::1]"] : opts.allowedHosts;
 
-  async function runWorkflow(wf: StoredWorkflow, input: Item[], mode: "manual" | "webhook"): Promise<StoredExecution> {
+  async function runWorkflow(wf: StoredWorkflow, input: Item[], mode: StoredExecution["mode"], startNodeId?: string): Promise<StoredExecution> {
     const startedAt = Date.now();
     let result;
     try {
-      result = await executeWorkflow(wf, input, { fetch: guardedFetch });
+      result = await executeWorkflow(wf, input, { fetch: guardedFetch, startNodeId });
     } catch (e) {
       result = { status: "error" as const, runs: [], error: (e as Error).message };
     }
@@ -193,7 +196,13 @@ export async function createApp(opts: AppOptions): Promise<{ server: Server; sto
       if (!res.headersSent) send(res, status, { error: e instanceof HttpError ? e.message : "خطای داخلی سرور" });
     });
   });
-  return { server, store };
+  const triggers = new TriggerManager({
+    listWorkflows: () => store.listWorkflows(),
+    run: (wf, input, mode, startNodeId) => runWorkflow(wf, input, mode, startNodeId),
+    fetch: guardedFetch,
+  });
+  if (opts.autoTriggers) { triggers.start(); server.on("close", () => triggers.stop()); }
+  return { server, store, triggers };
 }
 
 function summary(e: StoredExecution) {

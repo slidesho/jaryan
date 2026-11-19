@@ -1,4 +1,4 @@
-export type FieldType = "text" | "number" | "json" | "select" | "secret";
+export type FieldType = "text" | "number" | "json" | "select" | "secret" | "textarea";
 export interface FieldDef {
   key: string; label: string; type: FieldType;
   options?: { value: string; label: string }[]; placeholder?: string; default?: unknown;
@@ -6,7 +6,7 @@ export interface FieldDef {
 export interface NodeTypeDef {
   type: string; label: string; group: string; description: string; fields: FieldDef[];
 }
-export interface WfNode { id: string; name: string; type: string; params: Record<string, unknown> }
+export interface WfNode { id: string; name: string; type: string; params: Record<string, unknown>; retry?: { times: number; delayMs: number }; continueOnFail?: boolean }
 export interface WfConn { from: string; to: string; output?: string }
 export interface Workflow {
   id: string; name: string; nodes: WfNode[]; connections: WfConn[];
@@ -74,3 +74,7 @@ export const SAMPLE = {
   positions: { t: { x: 700, y: 120 }, c: { x: 440, y: 120 }, y: { x: 180, y: 20 }, n: { x: 180, y: 220 } },
 };
 export const SAMPLE_INPUT = '[{"body": {"نام": "علی", "مبلغ": 250}}]';
+
+export function modeLabel(mode: string): string {
+  return ({ manual: "دستی", webhook: "وب‌هوک", schedule: "زمان‌بندی", bot: "پیام ربات" } as Record<string, string>)[mode] ?? mode;
+}

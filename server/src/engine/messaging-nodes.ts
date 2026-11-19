@@ -17,6 +17,35 @@ function requireString(v: unknown, label: string): string {
   return v;
 }
 
+/** دکمه‌ها: فهرست ردیف‌ها؛ هر دکمه رشته (فقط متن) یا {text, data | url} */
+export function buildReplyMarkup(raw: unknown, kind: unknown): Record<string, unknown> | undefined {
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  let rows: unknown = raw;
+  if (typeof raw === "string") {
+    try { rows = JSON.parse(raw); } catch { throw new Error("دکمه‌ها باید JSON معتبر باشند"); }
+  }
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error("دکمه‌ها باید فهرست غیرخالی باشند");
+  if (rows.length > 8) throw new Error("حداکثر ۸ ردیف دکمه مجاز است");
+  const inline = kind !== "reply";
+  const out = rows.map((row) => {
+    const cells = Array.isArray(row) ? row : [row];
+    if (cells.length === 0 || cells.length > 8) throw new Error("هر ردیف باید ۱ تا ۸ دکمه داشته باشد");
+    return cells.map((c) => {
+      const b = typeof c === "string" ? { text: c } : (c as { text?: unknown; data?: unknown; url?: unknown });
+      if (!b || typeof b.text !== "string" || b.text === "" || b.text.length > 64) throw new Error("متن هر دکمه الزامی و حداکثر ۶۴ نویسه است");
+      if (!inline) return { text: b.text };
+      if ("url" in b && b.url !== undefined) {
+        if (typeof b.url !== "string" || !/^https?:\/\//.test(b.url)) throw new Error("نشانی دکمه باید با http یا https شروع شود");
+        return { text: b.text, url: b.url };
+      }
+      const data = "data" in b && b.data !== undefined ? String(b.data) : b.text;
+      if (new TextEncoder().encode(data).length > 64) throw new Error("داده‌ی دکمه حداکثر ۶۴ بایت است");
+      return { text: b.text, callback_data: data };
+    });
+  });
+  return inline ? { inline_keyboard: out } : { keyboard: out, resize_keyboard: true, one_time_keyboard: true };
+}
+
 /** ارسال پیام با بات API سازگار با تلگرام (تلگرام و بله) */
 function botSendMessage(kind: "telegram" | "bale"): NodeHandler {
   return async (ctx, items) => {
@@ -27,10 +56,11 @@ function botSendMessage(kind: "telegram" | "bale"): NodeHandler {
     const text = requireString(ctx.params.text, "متن پیام");
     if (text.length > 4096) throw new Error("متن پیام نباید از ۴۰۹۶ نویسه بیشتر باشد");
 
+    const markup = buildReplyMarkup(ctx.params.buttons, ctx.params.buttonType);
     const res = await ctx.fetch(`${BOT_BASES[kind]}/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify({ chat_id: chatId, text, ...(markup ? { reply_markup: markup } : {}) }),
     });
     const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean; result?: unknown; description?: string; error_code?: number;

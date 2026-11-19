@@ -12,3 +12,4 @@ backups/
 server/public/
 server/dist/
 dist-test/
+dist-demo/

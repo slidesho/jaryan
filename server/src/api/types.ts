@@ -13,7 +13,7 @@ export interface StoredWorkflow extends Workflow {
 export interface StoredExecution extends ExecutionResult {
   id: string;
   workflowId: string;
-  mode: "manual" | "webhook";
+  mode: "manual" | "webhook" | "schedule" | "bot";
   startedAt: number;
   finishedAt: number;
 }
